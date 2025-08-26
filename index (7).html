@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Gmail, IP & Location</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #f9f9fb;
+    color: #111;
+    display: grid;
+    place-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .card {
+    background: #fff;
+    padding: 24px 32px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 440px;
+  }
+  h1 { margin: 0 0 12px; font-size: 1.6rem; }
+  .info {
+    margin: 12px 0;
+    font-size: 1rem;
+  }
+  .ip {
+    font-family: ui-monospace, monospace;
+    font-size: 1.2rem;
+    background: #111;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    display: inline-block;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Sign in to view details</h1>
+    <div id="g_id_onload"
+         data-client_id="646741804265-pg8bk5sg8ehg1apcphjcv6mnl3av3m0v.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false"></div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <div id="details" style="display:none;">
+      <div class="info"><strong>Gmail:</strong> <span id="gmail"></span></div>
+      <div class="info"><strong>Your Public IP:</strong> <span id="ip" class="ip">Loading…</span></div>
+      <div class="info"><span id="type"></span></div>
+      <div class="info"><span id="location"></span></div>
+    </div>
+  </div>
+
+<script>
+function decodeJwtResponse(token) {
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+  return JSON.parse(jsonPayload);
+}
+
+async function handleCredentialResponse(response) {
+  const data = decodeJwtResponse(response.credential);
+  const email = data.email;
+  document.getElementById("gmail").textContent = email;
+
+  document.getElementById("details").style.display = "block";
+
+  // Fetch IP + location
+  try {
+    const res = await fetch("https://api64.ipify.org?format=json");
+    const ipData = await res.json();
+    const ip = ipData.ip.trim();
+    document.getElementById("ip").textContent = ip;
+
+    const isIPv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
+    const isIPv6 = /^[0-9a-fA-F:]+$/.test(ip);
+    document.getElementById("type").textContent = isIPv4 ? "Detected: IPv4" : (isIPv6 ? "Detected: IPv6" : "");
+
+    const locRes = await fetch(`https://ipapi.co/${ip}/json/`);
+    const loc = await locRes.json();
+    if (loc && loc.city) {
+      document.getElementById("location").textContent =
+        `Approximate location: ${loc.city}, ${loc.region}, ${loc.country_name}`;
+    } else {
+      document.getElementById("location").textContent = "Approximate location unavailable";
+    }
+  } catch (e) {
+    document.getElementById("ip").textContent = "Could not detect";
+    document.getElementById("location").textContent = "Location unavailable";
+  }
+}
+</script>
+</body>
+</html>
